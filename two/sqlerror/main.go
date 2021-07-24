@@ -26,7 +26,7 @@ func dao() (Row, error) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// dao层不处理error
-			return row, errors.Wrapf(err, "sql:%s error: %v", "select * from user where id = 1", err)
+			return row, errors.Wrapf(ErrNotFound, "sql:%s error: %v", "select * from user where id = 1", err)
 		} else {
 			return row, err
 		}
@@ -38,12 +38,11 @@ func main() {
 	row, err := dao()
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			//
 			fmt.Println("未找到数据，返回空数据给上层")
 		} else {
-			fmt.Println("其他err，返回err给上层")
+			fmt.Printf("其他err，返回err给上层：%+v", err)
 		}
+	} else {
+		fmt.Println("query row: ", row)
 	}
-	fmt.Println("query row: ", row)
-
 }
