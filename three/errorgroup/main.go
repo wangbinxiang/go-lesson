@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,18 +15,34 @@ import (
 
 func main() {
 
+	srv := &http.Server{Addr: ":8000"}
+
+	// 注册http服务 / /stop
+	// server监听
+
+	// 启动
+
 	g, ctx := errgroup.WithContext(context.Background())
 
+	// ctx := context.Background()
+
+	// ctx, cancel := context.WithCancel(ctx)
+
+	// g, errCtx := errgroup.WithContext(ctx)
+
+	// 一个http服务
+	serverChan := make(chan struct{})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello world")
 	})
-	serverChan := make(chan struct{})
 	http.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "server shut down")
 		serverChan <- struct{}{}
-		fmt.Fprint(w, "stop server ")
 	})
 
-	srv := &http.Server{Addr: ":8000"}
+	srv.RegisterOnShutdown(func() {
+		fmt.Println("server on shutdown")
+	})
 
 	g.Go(func() error {
 		return srv.ListenAndServe()
@@ -35,67 +50,32 @@ func main() {
 
 	g.Go(func() error {
 		select {
-		case <-ctx.Done():
-			log.Println("errgroup shutdown")
 		case <-serverChan:
-			log.Println("server will stop")
+			fmt.Println("server stop with serverChan")
+		case <-ctx.Done():
+			fmt.Println("server stop with ctx.Done")
 		}
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
+		fmt.Println("http server shutdown")
 		return srv.Shutdown(timeoutCtx)
 	})
 
-	// 一个sign信号
 	g.Go(func() error {
-		c := make(chan os.Signal)
+		c := make(chan os.Signal, 4)
 		signal.Notify(c, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
-
 		select {
 		case sig := <-c:
+			fmt.Printf("signal stop with signal: %v\n", sig)
 			return errors.Errorf("get os signal: %v", sig)
 		case <-ctx.Done():
+			fmt.Println("signal stop with ctx.Done")
 			return ctx.Err()
 		}
 	})
 
+	g.Wait()
 	fmt.Printf("errgroup done: %v\n", g.Wait())
 }
-
-// func operation1(ctx context.Context) error {
-// 	// 让我们假设这个操作会因为某种原因失败
-// 	// 我们使用time.Sleep来模拟一个资源密集型操作
-// 	time.Sleep(100 * time.Millisecond)
-// 	return errors.New("failed")
-// }
-
-// func operation2(ctx context.Context) {
-// 	// 我们使用在前面HTTP服务器例子里使用过的类型模式
-// 	select {
-// 	case <-time.After(500 * time.Millisecond):
-// 		fmt.Println("done")
-// 	case <-ctx.Done():
-// 		fmt.Println("halted operation2")
-// 	}
-// }
-
-// func main() {
-// 	// 新建一个上下文
-// 	ctx := context.Background()
-// 	// 在初始上下文的基础上创建一个有取消功能的上下文
-// 	ctx, cancel := context.WithCancel(ctx)
-// 	// 在不同的goroutine中运行operation2
-
-// 	fmt.Println("start")
-// 	go func() {
-// 		operation2(ctx)
-// 	}()
-
-// 	err := operation1(ctx)
-// 	// 如果这个操作返回错误，取消所有使用相同上下文的操作
-// 	if err != nil {
-// 		cancel()
-// 	}
-// 	time.Sleep(1000 * time.Millisecond)
-// 	fmt.Println("end")
-// }
