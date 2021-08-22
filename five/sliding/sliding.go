@@ -6,13 +6,13 @@ import (
 )
 
 type Sliding struct {
-	buckets        []*bucket // 桶集合
+	buckets        []*bucket //桶集合
 	size           int       // 桶数量
 	window         int       // 窗口长度 必须小于等于size
 	current        int       // 当前桶
-	last           time.Time // 上一次记录的时间
+	last           time.Time //
 	lastDuration   time.Duration
-	bucketDuration time.Duration // 桶时间区间
+	bucketDuration time.Duration
 	mu             sync.RWMutex
 }
 
